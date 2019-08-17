@@ -1,0 +1,25 @@
+version: '3'
+
+services:
+
+  nginx:
+    build: nginx
+    container_name: ga_proxy
+    ports:
+      - "8080:80"
+    networks: 
+      - ga_network
+
+  app:
+    build: app
+    container_name: ga_app
+    expose:
+      - "8080"
+    networks: 
+      - ga_network
+
+networks:
+  ga_network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.enable_ipv6: "false"
