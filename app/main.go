@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -27,7 +28,12 @@ type GaProfile struct {
 
 type Response struct {
 	ActiveUsers [][]string `json:"active_users"`
+	NewUsers    [][]string `json:"new_users"`
 	Meta        Meta       `json:"meta,omitempty"`
+}
+
+type ErrorResponse struct {
+	Message string `json:"message"`
 }
 
 type Meta struct {
@@ -43,6 +49,31 @@ func main() {
 
 func getCurrentActiveUsers(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
+		startDate, eSd := r.URL.Query()["start_date"]
+
+		if !eSd || len(startDate[0]) < 1 {
+			errSdResponse, _ := json.Marshal(ErrorResponse{
+				Message: "Start Date is required",
+			})
+
+			w.WriteHeader(200)
+			w.Write(errSdResponse)
+			return
+		}
+		startDateString := strings.Join(startDate, "")
+
+		endDate, eEd := r.URL.Query()["end_date"]
+
+		if !eEd || len(endDate[0]) < 1 {
+			errEdResponse, _ := json.Marshal(ErrorResponse{
+				Message: "End Date is required",
+			})
+
+			w.WriteHeader(200)
+			w.Write(errEdResponse)
+			return
+		}
+		endDateString := strings.Join(startDate, "")
 
 		key, _ := ioutil.ReadFile("credential.json")
 
@@ -110,12 +141,15 @@ func getCurrentActiveUsers(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 
-		metrics := "rt:activeUsers"
-		rt, err := svc.Data.Realtime.Get(viewID, metrics).Do()
+		au, err := svc.Data.Realtime.Get(viewID, "rt:activeUsers").Do()
+		p(err)
+
+		nu, err := svc.Data.Ga.Get(viewID, startDateString, endDateString, "ga:newUsers").Do()
 		p(err)
 
 		response, _ := json.Marshal(Response{
-			ActiveUsers: rt.Rows,
+			ActiveUsers: au.Rows,
+			NewUsers:    nu.Rows,
 			Meta: Meta{
 				Profiles:   gaProfiles,
 				Accounts:   gaAccounts,
