@@ -22,10 +22,9 @@ type GaProperty struct {
 }
 
 type GaProfile struct {
-	ID          string      `json:"id"`
-	Name        string      `json:"name"`
-	ActiveUsers interface{} `json:"active_users"`
-	NewUsers    interface{} `json:"new_users"`
+	ID    string      `json:"id"`
+	Name  string      `json:"name"`
+	Users interface{} `json:"users"`
 }
 
 type Response struct {
@@ -132,15 +131,12 @@ func getCurrentActiveUsers(w http.ResponseWriter, r *http.Request) {
 			for _, p := range profiles.Items {
 				viewID = "ga:" + p.Id
 
-				au, _ := svc.Data.Realtime.Get(viewID, "rt:activeUsers").Do()
-
-				nu, _ := svc.Data.Ga.Get(viewID, startDateString, endDateString, "ga:newUsers").Do()
+				users, _ := svc.Data.Ga.Get(viewID, startDateString, endDateString, "ga:users").Do()
 
 				gaProfiles = append(gaProfiles, GaProfile{
-					ID:          p.Id,
-					Name:        p.Name,
-					ActiveUsers: au.Rows,
-					NewUsers:    nu.Rows,
+					ID:    p.Id,
+					Name:  p.Name,
+					Users: users.Rows,
 				})
 			}
 		} else {
@@ -150,15 +146,12 @@ func getCurrentActiveUsers(w http.ResponseWriter, r *http.Request) {
 				if profileIdString == p.Id {
 					viewID = "ga:" + p.Id
 
-					au, _ := svc.Data.Realtime.Get(viewID, "rt:activeUsers").Do()
-
-					nu, _ := svc.Data.Ga.Get(viewID, startDateString, endDateString, "ga:newUsers").Do()
+					users, _ := svc.Data.Ga.Get(viewID, startDateString, endDateString, "ga:users").Do()
 
 					gaProfiles = append(gaProfiles, GaProfile{
-						ID:          p.Id,
-						Name:        p.Name,
-						ActiveUsers: au.Rows,
-						NewUsers:    nu.Rows,
+						ID:    p.Id,
+						Name:  p.Name,
+						Users: users.Rows,
 					})
 				}
 			}
