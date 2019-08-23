@@ -22,14 +22,14 @@ type GaProperty struct {
 }
 
 type GaProfile struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID          string      `json:"id"`
+	Name        string      `json:"name"`
+	ActiveUsers interface{} `json:"active_users"`
+	NewUsers    interface{} `json:"new_users"`
 }
 
 type Response struct {
-	ActiveUsers [][]string `json:"active_users"`
-	NewUsers    [][]string `json:"new_users"`
-	Meta        Meta       `json:"meta,omitempty"`
+	Meta Meta `json:"meta,omitempty"`
 }
 
 type ErrorResponse struct {
@@ -50,7 +50,6 @@ func main() {
 func getCurrentActiveUsers(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		startDate, eSd := r.URL.Query()["start_date"]
-
 		if !eSd || len(startDate[0]) < 1 {
 			errSdResponse, _ := json.Marshal(ErrorResponse{
 				Message: "Start Date is required",
@@ -63,7 +62,6 @@ func getCurrentActiveUsers(w http.ResponseWriter, r *http.Request) {
 		startDateString := strings.Join(startDate, "")
 
 		endDate, eEd := r.URL.Query()["end_date"]
-
 		if !eEd || len(endDate[0]) < 1 {
 			errEdResponse, _ := json.Marshal(ErrorResponse{
 				Message: "End Date is required",
@@ -73,7 +71,7 @@ func getCurrentActiveUsers(w http.ResponseWriter, r *http.Request) {
 			w.Write(errEdResponse)
 			return
 		}
-		endDateString := strings.Join(startDate, "")
+		endDateString := strings.Join(endDate, "")
 
 		key, _ := ioutil.ReadFile("credential.json")
 
@@ -129,27 +127,44 @@ func getCurrentActiveUsers(w http.ResponseWriter, r *http.Request) {
 		var viewID string
 		var gaProfiles []GaProfile
 
-		for i, p := range profiles.Items {
-
-			if i == 0 {
+		profileId, ePi := r.URL.Query()["profile_id"]
+		if !ePi || len(profileId[0]) < 1 {
+			for _, p := range profiles.Items {
 				viewID = "ga:" + p.Id
-			}
 
-			gaProfiles = append(gaProfiles, GaProfile{
-				ID:   p.Id,
-				Name: p.Name,
-			})
+				au, _ := svc.Data.Realtime.Get(viewID, "rt:activeUsers").Do()
+
+				nu, _ := svc.Data.Ga.Get(viewID, startDateString, endDateString, "ga:newUsers").Do()
+
+				gaProfiles = append(gaProfiles, GaProfile{
+					ID:          p.Id,
+					Name:        p.Name,
+					ActiveUsers: au.Rows,
+					NewUsers:    nu.Rows,
+				})
+			}
+		} else {
+			profileIdString := strings.Join(profileId, "")
+
+			for _, p := range profiles.Items {
+				if profileIdString == p.Id {
+					viewID = "ga:" + p.Id
+
+					au, _ := svc.Data.Realtime.Get(viewID, "rt:activeUsers").Do()
+
+					nu, _ := svc.Data.Ga.Get(viewID, startDateString, endDateString, "ga:newUsers").Do()
+
+					gaProfiles = append(gaProfiles, GaProfile{
+						ID:          p.Id,
+						Name:        p.Name,
+						ActiveUsers: au.Rows,
+						NewUsers:    nu.Rows,
+					})
+				}
+			}
 		}
 
-		au, err := svc.Data.Realtime.Get(viewID, "rt:activeUsers").Do()
-		p(err)
-
-		nu, err := svc.Data.Ga.Get(viewID, startDateString, endDateString, "ga:newUsers").Do()
-		p(err)
-
 		response, _ := json.Marshal(Response{
-			ActiveUsers: au.Rows,
-			NewUsers:    nu.Rows,
 			Meta: Meta{
 				Profiles:   gaProfiles,
 				Accounts:   gaAccounts,
